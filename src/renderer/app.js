@@ -9,10 +9,20 @@ import AppBar from 'material-ui/AppBar';
 import List from 'material-ui/List';
 import Typography from 'material-ui/Typography';
 import Divider from 'material-ui/Divider';
-import {Grid, ListItem, ListItemText} from "material-ui";
+import {
+	Button,
+	Dialog, DialogActions, DialogContent, DialogTitle, Grid, Icon, IconButton, ListItem, ListItemSecondaryAction,
+	ListItemText,
+	Tooltip
+} from "material-ui";
 import CssBaseline from 'material-ui/CssBaseline';
 
-import Mod from './mod/mod';
+import ModListEntry from './mod/modListEntry';
+
+import Mod from './mod/modDetails';
+import Loader from './loader/loader';
+import {wrapComponentWithAppState} from "./state";
+import {injectState} from "freactal";
 
 const drawerWidth = 240;
 
@@ -49,38 +59,98 @@ const styles = theme => ({
 		// flexGrow: 1,
 		width: '100%',
 		backgroundColor: theme.palette.background.default
-	},
+	}
 });
 
 const { ipcRenderer } = require('electron');
 
-class PermanentDrawer extends React.Component {
+class App extends React.Component {
 	state = {
-		modList: [],
-		selectedMod: null
+		initialFetch: true,
+		currentDependencyList: null
 	};
 
 	componentWillMount() {
-		const x = this;
-
 		ipcRenderer.on('modList', (event, args) => {
-			x.setState({
-				modList: args
+			this.props.effects.setRepositoryContent(args);
+			this.setState({
+				initialFetch: false
+			});
+		});
+
+		ipcRenderer.on('installedMods', (event, args) => {
+			console.log("installed mods", args);
+			args.forEach(mod => {
+				this.props.effects.setModInstalled(mod, true);
+				this.props.effects.setModInstalling(mod, false);
+			});
+		});
+
+		ipcRenderer.on('resolvedDependencies', (event, args) => {
+			if (args.data.autoResolvable) {
+				console.log("Installing mods:", args.data.dependencies);
+				const pendingInstall = args.data.dependencies.map(dependency =>
+					// TODO the last element does not have to be the most recent
+					dependency.versions[dependency.versions.length - 1]._id
+				);
+				pendingInstall.push(args.id);
+
+				ipcRenderer.send('installMods', {
+					modList: pendingInstall
+				});
+
+				pendingInstall.forEach((mod) => {
+					this.props.effects.setModInstalling(mod, true);
+				});
+			}
+			args.data.id = args.id;
+			this.setState({
+				currentDependencyList: args.data
 			});
 		});
 	}
 
-	handleModClick = mod => () => {
+	handleInstallCancel = () => {
+		console.log(this.state.currentDependencyList.id);
+		this.props.effects.setModInstalling(this.state.currentDependencyList.id, false);
+		// const newInstalling = this.state.installing;
+		// delete newInstalling[this.state.currentDependencyList.id];
+        //
 		this.setState({
-			selectedMod: mod
+			currentDependencyList: null
 		});
 	};
 
 	render() {
-		const { classes } = this.props;
-		const { modList, selectedMod } = this.state;
+		const { classes, state } = this.props;
+		const { initialFetch, currentDependencyList } = this.state;
 
-		const selectedModID = selectedMod ? selectedMod._id : null;
+		const resolverDialogOpen = !!(currentDependencyList && !currentDependencyList.autoResolvable);
+
+		const dependencyResolverDialog = (
+			<Dialog
+				disableBackdropClick
+				disableEscapeKeyDown
+				maxWidth="xs"
+				aria-labelledby="confirmation-dialog-title"
+				open={resolverDialogOpen}
+			>
+				<DialogTitle id="confirmation-dialog-title">
+					Meh
+				</DialogTitle>
+				<DialogContent>
+					<Typography>Unable to auto-resolve dependencies!</Typography>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={this.handleInstallCancel} color="primary">
+						Cancel
+					</Button>
+					<Button color="primary">
+						Ok
+					</Button>
+				</DialogActions>
+			</Dialog>
+		);
 
 		return (
 			<div className={classes.root}>
@@ -95,48 +165,33 @@ class PermanentDrawer extends React.Component {
 						<AppBar position="sticky" color="default" classes={{ root: classes.toolbar }}>
 							<div/>
 						</AppBar>
-						<List>
-							{modList.map((mod) =>
-								<div key={mod._id}>
-									<ListItem
-										button
-										onClick={this.handleModClick(mod)}
-										style={{
-											backgroundColor: selectedModID === mod._id ? 'rgba(1, 1, 1, .12)' : ''
-										}}
-									>
-										<ListItemText
-											disableTypography
-											primary={
-												<Typography variant="subheading" noWrap>{mod.name}</Typography>
-											}
-											secondary={
-												<Typography variant="caption" noWrap>{mod.abstract}</Typography>
-											}
-										/>
-									</ListItem>
-									<Divider inset />
-								</div>
-							)}
-						</List>
+
+						{initialFetch
+							? <Grid container justify="center" alignItems="center" style={{ height: '100%' }}>
+								<Grid item>
+									<Loader text="Refreshing modlist" />
+								</Grid>
+							</Grid>
+							: <List>
+								{Object.keys(state.repository).map((modID) => {
+									return <ModListEntry id={modID} key={modID} />;
+								})}
+							</List>}
 					</Drawer>
 					<main className={classes.content}>
-						{selectedMod
-							? <Mod mod={selectedMod}/>
-							: <Grid container justify="center" alignItems="center" style={{ height: '100%' }}>
-								<Grid item>
-									<Typography variant="display1" style={{ color: '#ccc' }}>No mod selected</Typography>
-								</Grid>
-							</Grid>}
+						<Mod />
 					</main>
 				</div>
+				{dependencyResolverDialog}
 			</div>
 		);
 	}
 }
 
-PermanentDrawer.propTypes = {
+App.propTypes = {
 	classes: PropTypes.object.isRequired,
 };
 
-export default withStyles(styles)(PermanentDrawer);
+export default wrapComponentWithAppState(
+	injectState(withStyles(styles)(App))
+);

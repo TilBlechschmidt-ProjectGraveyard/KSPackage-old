@@ -4,7 +4,10 @@ import { app, screen, BrowserWindow } from 'electron'
 import * as path from 'path'
 import { format as formatUrl } from 'url'
 
-import './modlist';
+import './repository';
+import './network';
+import './installMod';
+import {loadDB} from "./db";
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
@@ -69,5 +72,6 @@ app.on('activate', () => {
 
 // create main BrowserWindow when electron is ready
 app.on('ready', () => {
+	loadDB();
 	mainWindow = createMainWindow()
 });

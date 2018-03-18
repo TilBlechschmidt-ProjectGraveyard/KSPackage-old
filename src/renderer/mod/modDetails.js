@@ -5,8 +5,9 @@ import classNames from 'classnames';
 
 import { ipcRenderer } from 'electron';
 
-import {Typography} from "material-ui";
+import {Grid, Typography} from "material-ui";
 import Interweave from 'interweave';
+import {injectState} from "freactal";
 
 const styles = theme => ({
 	root: {
@@ -32,7 +33,7 @@ const styles = theme => ({
 
 const spacedockIDRegex = /spacedock\.info\/mod\/(\d+?)\//g;
 
-class Mod extends React.Component {
+class ModDetails extends React.Component {
 	state = {
 		spacedock: undefined
 	};
@@ -42,36 +43,25 @@ class Mod extends React.Component {
 			spacedock: undefined
 		});
 
-		const mod = this.props.mod;
-		if (mod.resources.spacedock) {
-			const modIDMatch = spacedockIDRegex.exec(mod.resources.spacedock);
-			if (modIDMatch) {
-				const modID = modIDMatch[1];
+		if (this.props.state.selected) {
+			const mod = this.props.state.selectedMod;
+			if (mod.resources.spacedock) {
+				const modIDMatch = spacedockIDRegex.exec(mod.resources.spacedock);
+				if (modIDMatch) {
+					const modID = modIDMatch[1];
 
-				ipcRenderer.send('httpRequest', {
-					id: mod._id,
-					url: `http://spacedock.info/api/mod/${modID}`,
-					type: 'spacedock'
-				});
-				// const spacedockObj = fetch(`http://spacedock.info/api/mod/${modID}`, { mode: 'no-cors' });
-                //
-				// spacedockObj
-				// 	.then(function(response) {
-				// 		console.log(response);
-				// 		return response.text();
-				// 	})
-				// 	.then(function(text) {
-				// 		console.log('Request successful', text);
-				// 	})
-				// 	.catch(function(error) {
-				// 		log('Request failed', error)
-				// 	});
+					ipcRenderer.send('httpRequest', {
+						id: mod._id,
+						url: `http://spacedock.info/api/mod/${modID}`,
+						type: 'spacedock'
+					});
+				}
 			}
 		}
 	};
 
 	componentDidUpdate(prevProps) {
-		if (prevProps.mod._id !== this.props.mod._id) {
+		if (prevProps.state.selected !== this.props.state.selected) {
 			this.onModChange();
 		}
 	}
@@ -80,7 +70,7 @@ class Mod extends React.Component {
 		this.onModChange();
 
 		ipcRenderer.on('httpResponse', (event, args) => {
-			if (this.props.mod._id === args.id) {
+			if (this.props.state.selected === args.id) {
 
 				if (args.type === 'spacedock') {
 					this.setState({
@@ -93,11 +83,19 @@ class Mod extends React.Component {
 	}
 
 	render() {
-		const { classes, mod } = this.props;
+		const { classes, state } = this.props;
 
+		if (!state.selected)
+			return (
+				<Grid container justify="center" alignItems="center" style={{ height: '100%' }}>
+					<Grid item>
+						<Typography variant="display1" style={{ color: '#ccc' }}>No mod selected</Typography>
+					</Grid>
+				</Grid>
+			);
+
+		const mod = state.selectedMod;
 		const screenshot = mod.resources['x_screenshot'];
-
-		console.log(mod);
 
 		const description = this.state.spacedock
 			? <Interweave tagName="div" content={this.state.spacedock['description_html']} />
@@ -122,8 +120,8 @@ class Mod extends React.Component {
 	}
 }
 
-Mod.propTypes = {
+ModDetails.propTypes = {
 	classes: PropTypes.object.isRequired,
 };
 
-export default withStyles(styles)(Mod);
+export default injectState(withStyles(styles)(ModDetails));

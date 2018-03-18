@@ -4,7 +4,7 @@ import { withStyles } from 'material-ui/styles';
 
 import { ipcRenderer } from 'electron';
 
-import { LinearProgress } from "material-ui";
+import {LinearProgress} from "material-ui";
 
 const styles = theme => ({
 	root: {
@@ -13,6 +13,9 @@ const styles = theme => ({
 		height: 'auto',
 		width: '100%',
 		zIndex: 1000000
+	},
+	circularProgress: {
+		margin: theme.spacing.unit * 2
 	}
 });
 
@@ -33,6 +36,8 @@ class Updater extends React.Component {
 	}
 
 	render() {
+		const { classes } = this.props;
+
 		return (
 			<div className={this.props.classes.root}>
 				<LinearProgress variant="determinate" value={this.state.progress * 100} className="fetchProgress"/>

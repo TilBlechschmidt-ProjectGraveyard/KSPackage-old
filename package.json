@@ -1,5 +1,6 @@
 {
 	"name": "KSPackage",
+	"productName": "KSPackage",
 	"version": "0.0.0",
 	"description": "Mod manager for Kerbal Space Program",
 	"author": "Til Blechschmidt <til@blechschmidt.de>",
@@ -13,6 +14,7 @@
 	"dependencies": {
 		"classnames": "^2.2.5",
 		"electron-remote": "^1.2.0",
+		"freactal": "^2.0.3",
 		"interweave": "^8.0.2",
 		"material-ui": "^1.0.0-beta.35",
 		"nedb": "^1.8.0",
