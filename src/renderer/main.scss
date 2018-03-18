@@ -1,0 +1,30 @@
+@import url('https://fonts.googleapis.com/css?family=Roboto');
+
+html, body {
+  margin: 0;
+  height: 100%;
+}
+
+#app {
+  height: 100%;
+}
+
+.draggable {
+  -webkit-app-region: drag;
+}
+
+.fetchProgress {
+  opacity: 1;
+  transition-property: opacity;
+  transition-duration: 0.5s;
+  transition-delay: 2s;
+  pointer-events: none;
+}
+
+.fetchProgress[aria-valuenow="100"] {
+  opacity: 0;
+}
+
+.mod-description * img {
+  width: 100%;
+}
