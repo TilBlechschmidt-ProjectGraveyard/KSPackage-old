@@ -49,6 +49,7 @@ class ModListEntry extends React.Component {
 		const { id, state, classes } = this.props;
 
 		const mod = state.repository[id];
+		if (!mod) return <div/>;
 
 		let icon = (
 			<Tooltip title="Install" placement="bottom" onClick={this.handleModInstall(id)}>

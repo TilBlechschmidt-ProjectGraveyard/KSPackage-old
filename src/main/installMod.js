@@ -22,12 +22,25 @@ function getMod(filter, singleMod = true) {
 	});
 }
 
-function versionCompare(v1, v2, options) {
+function stripVersionPrefix(version) {
+	const cleaned = version.replace(/(.+?):/g, '').replace(/v/gi, '').replace('-', '.');
+
+	const postfix = /(\D+)$/g.exec(cleaned);
+
+	if (postfix) {
+		const postfixNumbers = postfix ? `.${postfix[1].split('').map(char => char.charCodeAt(0) - 97).join('.')}` : '';
+		return cleaned.substring(0, cleaned.length - postfix[1].length) + postfixNumbers;
+	} else {
+		return cleaned;
+	}
+}
+
+export function versionCompare(v1, v2, options) {
 	if (!v1 || !v2) return 0;
 	let lexicographical = options && options.lexicographical,
 		zeroExtend = options && options.zeroExtend,
-		v1parts = v1.split('.'),
-		v2parts = v2.split('.');
+		v1parts = stripVersionPrefix(v1).split('.'),
+		v2parts = stripVersionPrefix(v2).split('.');
 
 	function isValidPart(x) {
 		return (lexicographical ? /^\d+[A-Za-z]*$/ : /^\d+$/).test(x);
@@ -73,7 +86,7 @@ function isWithinVersionRange(version, startVersion, endVersion) {
 		&& (endVersion === 'any' || versionCompare(version, endVersion) < 1);
 }
 
-function modIsCompatible(mod, targetVersion) {
+export function modIsCompatible(mod, targetVersion) {
 	if (mod['ksp_version']) {
 		return mod['ksp_version'] === targetVersion // Version match
 			|| mod['ksp_version'] === 'any' // Version wildcard

@@ -45,7 +45,7 @@ class ModDetails extends React.Component {
 
 		if (this.props.state.selected) {
 			const mod = this.props.state.selectedMod;
-			if (mod.resources.spacedock) {
+			if (mod.resources && mod.resources.spacedock) {
 				const modIDMatch = spacedockIDRegex.exec(mod.resources.spacedock);
 				if (modIDMatch) {
 					const modID = modIDMatch[1];
@@ -95,7 +95,7 @@ class ModDetails extends React.Component {
 			);
 
 		const mod = state.selectedMod;
-		const screenshot = mod.resources['x_screenshot'];
+		const screenshot = mod.resources ? mod.resources['x_screenshot'] : undefined;
 
 		const description = this.state.spacedock
 			? <Interweave tagName="div" content={this.state.spacedock['description_html']} />

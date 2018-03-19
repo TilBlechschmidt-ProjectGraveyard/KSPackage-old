@@ -4,19 +4,42 @@ import tmp from 'tmp';
 import yauzl from 'yauzl';
 import { ipcMain } from 'electron';
 
-import { downloadFile } from './network';
 import { modDB } from "./db";
+import { downloadFile } from './network';
+import { modIsCompatible, versionCompare } from "./installMod";
 
 const decompressNotifyInterval = 250; // Files
 
 let fetching = false;
+let kspVersion = "1.4.1";
+
+function filterMods(modList) {
+	// Match the game version compatibility
+	const compatible = modList.filter(mod => modIsCompatible(mod, kspVersion));
+
+	// Reduce to only one version per mod
+	const byIdentifier = compatible.reduce((list, mod) => {
+		if (!list[mod.identifier] || versionCompare(mod.version, list[mod.identifier].version) > 0)
+			list[mod.identifier] = mod;
+
+		return list;
+	}, {});
+
+	const singleVersion = Object.keys(byIdentifier).map(identifier => byIdentifier[identifier]);
+
+	return singleVersion;
+}
+
+function sendModsToClient(sender) {
+	modDB.find({}).sort({ name: 1 }).exec((err, docs) => {
+		if (!err) sender.send('modList', filterMods(docs));
+	});
+}
 
 ipcMain.on('fetchRepository', (event) => {
 	// TODO: Remove this.
 	event.sender.send('repositoryFetchProgress', 1);
-	modDB.find({ 'ksp_version': '1.4.1' }).sort({ name: 1 }).exec((err, docs) => {
-		if (!err) event.sender.send('modList', docs);
-	});
+	sendModsToClient(event.sender);
 	return;
 	// ---
 
@@ -52,7 +75,9 @@ ipcMain.on('fetchRepository', (event) => {
 						readStream.on("end", function() {
 							// Save the current entry in the DB
 							try {
-								modDB.insert(JSON.parse(data));
+								const parsed = JSON.parse(data);
+								if (!parsed.repositories && !parsed.builds) // Filter out the repositories
+									modDB.insert(parsed);
 							} catch (err) {}
 
 							// Send status updates
@@ -73,10 +98,7 @@ ipcMain.on('fetchRepository', (event) => {
 
 			zipfile.on('end', () => {
 				event.sender.send('repositoryFetchProgress', 1);
-
-				modDB.find({ 'ksp_version': '1.4.1' }).sort({ name: 1 }).exec((err, docs) => {
-					if (!err) event.sender.send('modList', docs);
-				});
+				sendModsToClient(event.sender);
 
 				fetching = false;
 			})

@@ -1,9 +1,11 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { withStyles } from 'material-ui/styles';
+import config from '../config.json';
 
 import classNames from 'classnames';
 
+import ReactList from 'react-list';
 import Drawer from 'material-ui/Drawer';
 import AppBar from 'material-ui/AppBar';
 import List from 'material-ui/List';
@@ -11,7 +13,8 @@ import Typography from 'material-ui/Typography';
 import Divider from 'material-ui/Divider';
 import {
 	Button,
-	Dialog, DialogActions, DialogContent, DialogTitle, Grid, Icon, IconButton, ListItem, ListItemSecondaryAction,
+	Dialog, DialogActions, DialogContent, DialogTitle, Grid, Icon, IconButton, Input, InputAdornment, ListItem,
+	ListItemSecondaryAction,
 	ListItemText,
 	Tooltip
 } from "material-ui";
@@ -51,14 +54,20 @@ const styles = theme => ({
 	},
 	toolbar: {
 		minHeight: theme.spacing.unit * 4,
-		height: theme.spacing.unit * 4,
+		padding: theme.spacing.unit,
 		backgroundColor: theme.palette.background.default,
 		boxShadow: 'none'
+	},
+	toolbarPadding: {
+		height: theme.spacing.unit * 4,
 	},
 	content: {
 		// flexGrow: 1,
 		width: '100%',
 		backgroundColor: theme.palette.background.default
+	},
+	searchInput: {
+		margin: '10px'
 	}
 });
 
@@ -78,8 +87,8 @@ class App extends React.Component {
 			});
 		});
 
+		// TODO Show failed installs visually
 		ipcRenderer.on('installedMods', (event, args) => {
-			console.log("installed mods", args);
 			args.forEach(mod => {
 				this.props.effects.setModInstalled(mod, true);
 				this.props.effects.setModInstalling(mod, false);
@@ -88,7 +97,6 @@ class App extends React.Component {
 
 		ipcRenderer.on('resolvedDependencies', (event, args) => {
 			if (args.data.autoResolvable) {
-				console.log("Installing mods:", args.data.dependencies);
 				const pendingInstall = args.data.dependencies.map(dependency =>
 					// TODO the last element does not have to be the most recent
 					dependency.versions[dependency.versions.length - 1]._id
@@ -119,6 +127,16 @@ class App extends React.Component {
 		this.setState({
 			currentDependencyList: null
 		});
+	};
+
+	handleSearch = (event) => {
+		this.props.effects.setSearchString(event.target.value);
+	};
+
+	renderItem = (index) => {
+		const mods = this.props.state.searchString ? this.props.state.searchResults : this.props.state.rawRepository;
+		const mod = mods[index];
+		return <ModListEntry id={mod._id} key={mod._id} />;
 	};
 
 	render() {
@@ -152,6 +170,18 @@ class App extends React.Component {
 			</Dialog>
 		);
 
+		const mods = state.searchString ? state.searchResults : state.rawRepository;
+
+		const modList = (
+			<List>
+				<ReactList
+					itemRenderer={this.renderItem}
+					length={mods.length}
+					type='uniform'
+				/>
+			</List>
+		);
+
 		return (
 			<div className={classes.root}>
 				<CssBaseline />
@@ -161,9 +191,26 @@ class App extends React.Component {
 						classes={{
 							paper: classes.drawerPaper,
 						}}
+						className="not-draggable"
 					>
 						<AppBar position="sticky" color="default" classes={{ root: classes.toolbar }}>
-							<div/>
+							<div className={classes.toolbarPadding} />
+							<Input
+								placeholder="Search"
+								inputProps={{
+									'aria-label': 'Description'
+								}}
+								startAdornment={
+									<InputAdornment position="start">
+										<Icon>search</Icon>
+									</InputAdornment>
+								}
+								classes={{
+									input: classes.searchInput
+								}}
+								onChange={this.handleSearch}
+								value={this.state.searchString}
+							/>
 						</AppBar>
 
 						{initialFetch
@@ -172,11 +219,7 @@ class App extends React.Component {
 									<Loader text="Refreshing modlist" />
 								</Grid>
 							</Grid>
-							: <List>
-								{Object.keys(state.repository).map((modID) => {
-									return <ModListEntry id={modID} key={modID} />;
-								})}
-							</List>}
+							: modList}
 					</Drawer>
 					<main className={classes.content}>
 						<Mod />

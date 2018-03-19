@@ -1,5 +1,29 @@
 {
   "repository": {
 	"url": "https://github.com/KSP-CKAN/CKAN-meta/archive/master.zip"
+  },
+  "list": {
+	"search": {
+	  "options": {
+		"shouldSort": true,
+		"threshold": 0.6,
+		"location": 0,
+		"distance": 100,
+		"maxPatternLength": 32,
+		"minMatchCharLength": 1,
+		"keys": [
+		  {
+			"name": "abstract",
+			"weight": 0.3
+		  }, {
+			"name": "name",
+			"weight": 0.7
+		  }, {
+			"name": "author",
+			"weight": 0.5
+		  }
+		]
+	  }
+	}
   }
 }

@@ -1,21 +1,20 @@
 import { provideState, update } from "freactal";
+import Fuse from 'fuse.js';
+import config from '../config.json';
 
 export const wrapComponentWithAppState = provideState({
 	initialState: () => ({
-		repository: {},
+		rawRepository: [],
 		installing: {},
 		installed: {},
 		selected: null,
+		searchString: ""
 	}),
 	effects: {
-		setRepositoryContent: update((state, content) => {
-			return {
-				repository: content.reduce((list, mod) => {
-					list[mod._id] = mod;
-					return list;
-				}, {})
-			}
-		}),
+		setSearchString: update((state, searchString) => ({ searchString })),
+		setRepositoryContent: update((state, content) => ({
+			rawRepository: content
+		})),
 		setModInstalling: update((state, modID, installing) => {
 			const installingEntry = {};
 			installingEntry[modID] = installing;
@@ -35,6 +34,14 @@ export const wrapComponentWithAppState = provideState({
 		}))
 	},
 	computed: {
-		selectedMod: ({selected, repository}) => repository[selected]
+		selectedMod: ({selected, repository}) => repository[selected],
+		repository: ({rawRepository}) => {
+			return rawRepository.reduce((list, mod) => {
+				list[mod._id] = mod;
+				return list;
+			}, {})
+		},
+		searchResults: ({ rawRepository, searchString }) =>
+			new Fuse(rawRepository, config.list.search.options).search(searchString)
 	}
 });
