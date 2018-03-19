@@ -266,16 +266,26 @@ async function installMod(mod) {
 		});
 	}
 
+	const installedFiles = [];
 	const copyOperations = directives.reduce((operations, directive) =>
 		operations.concat(directive.files.map(file => {
 			const source = path.join(directory, file.source);
 			const destination = path.join(gameDirectory, directive.destination, file.destination);
+
+			installedFiles.push(path.join(directive.destination, file.destination));
 
 			return copyFile(source, destination);
 		}))
 	, []);
 
 	await Promise.all(copyOperations);
+
+	await new Promise((resolve, reject) => {
+		installedDB.update({ _id: mod._id }, { $set: { files: installedFiles } }, {}, (err) => {
+			if (err) reject(err);
+			else resolve();
+		});
+	});
 }
 
 async function installMods(modList) {
