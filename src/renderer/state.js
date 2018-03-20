@@ -22,9 +22,9 @@ export const wrapComponentWithAppState = provideState({
 				installing: Object.assign({}, state.installing, installingEntry)
 			}
 		}),
-		setModInstalled: update((state, modID, installed) => {
+		setModInstalled: update((state, mod, installed) => {
 			const installingEntry = {};
-			installingEntry[modID] = installed;
+			installingEntry[mod] = installed;
 			return {
 				installed: Object.assign({}, state.installed, installingEntry)
 			}
@@ -37,7 +37,7 @@ export const wrapComponentWithAppState = provideState({
 		selectedMod: ({selected, repository}) => repository[selected],
 		repository: ({rawRepository}) => {
 			return rawRepository.reduce((list, mod) => {
-				list[mod._id] = mod;
+				list[mod.id] = mod;
 				return list;
 			}, {})
 		},

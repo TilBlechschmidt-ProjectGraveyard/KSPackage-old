@@ -51,7 +51,7 @@ class ModDetails extends React.Component {
 					const modID = modIDMatch[1];
 
 					ipcRenderer.send('httpRequest', {
-						id: mod._id,
+						id: mod.id,
 						url: `http://spacedock.info/api/mod/${modID}`,
 						type: 'spacedock'
 					});

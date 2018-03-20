@@ -6,6 +6,7 @@ import fs from 'fs';
 
 import { downloadFile } from "./network";
 import { installedDB } from "./db";
+import {sendModsToClient} from "./repository";
 
 function getMod(filter, singleMod = true) {
 	return new Promise((resolve, reject) => {
@@ -281,7 +282,7 @@ async function installMod(mod) {
 	await Promise.all(copyOperations);
 
 	await new Promise((resolve, reject) => {
-		installedDB.update({ _id: mod._id }, { $set: { files: installedFiles } }, {}, (err) => {
+		installedDB.update({ id: mod.id }, { $set: { files: installedFiles } }, {}, (err) => {
 			if (err) reject(err);
 			else resolve();
 		});
@@ -289,18 +290,23 @@ async function installMod(mod) {
 }
 
 async function installMods(modList) {
-	const mods = await Promise.all(modList.map(mod => getMod({ _id: mod })));
+	const mods = await Promise.all(modList.map(mod => getMod({ id: mod })));
+
+	mods.forEach(mod =>
+		installedDB.insert({
+			id: mod.id
+		})
+	);
 
 	await Promise.all(mods.map(installMod));
 }
 
 ipcMain.on('installMods', (event, args) => {
-	args.modList.forEach(id => installedDB.insert({ _id: id }) );
 	installMods(args.modList).then(() => {
-		event.sender.send('installedMods', args.modList);
+		sendModsToClient(event.sender);
 	}).catch((err) => {
 		console.log("Failed to install mods", args.modList, err);
 		event.sender.send('failedToInstallMods', args.modList);
-		args.modList.forEach(id => installedDB.remove({ _id: id }, {}) );
+		args.modList.forEach(id => installedDB.remove({ id: id }, {}) );
 	});
 });

@@ -26,6 +26,7 @@ import Mod from './mod/modDetails';
 import Loader from './loader/loader';
 import {wrapComponentWithAppState} from "./state";
 import {injectState} from "freactal";
+import {getModIdentifier} from "./helper";
 
 const drawerWidth = 240;
 
@@ -90,8 +91,8 @@ class App extends React.Component {
 		// TODO Show failed installs visually
 		ipcRenderer.on('installedMods', (event, args) => {
 			args.forEach(mod => {
-				this.props.effects.setModInstalled(mod, true);
-				this.props.effects.setModInstalling(mod, false);
+				this.props.effects.setModInstalled(mod.id, true);
+				this.props.effects.setModInstalling(mod.id, false);
 			});
 		});
 
@@ -99,7 +100,7 @@ class App extends React.Component {
 			if (args.data.autoResolvable) {
 				const pendingInstall = args.data.dependencies.map(dependency =>
 					// TODO the last element does not have to be the most recent
-					dependency.versions[dependency.versions.length - 1]._id
+					dependency.versions[dependency.versions.length - 1].id
 				);
 				pendingInstall.push(args.id);
 
@@ -136,7 +137,7 @@ class App extends React.Component {
 	renderItem = (index) => {
 		const mods = this.props.state.searchString ? this.props.state.searchResults : this.props.state.rawRepository;
 		const mod = mods[index];
-		return <ModListEntry id={mod._id} key={mod._id} />;
+		return <ModListEntry id={mod.id} key={mod.id} />;
 	};
 
 	render() {

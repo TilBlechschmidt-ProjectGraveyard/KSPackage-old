@@ -8,6 +8,7 @@ import {
 	Typography
 } from "material-ui";
 import { injectState } from "freactal";
+import {getModIdentifier} from "../helper";
 
 
 const styles = theme => ({
@@ -26,7 +27,7 @@ class ModListEntry extends React.Component {
 		this.props.effects.setModInstalling(modID, true);
 
 		ipcRenderer.send('resolveDependencies', {
-			filter: { _id: modID },
+			filter: { id: modID },
 			version: "1.4.1",
 			id: modID
 		});
@@ -39,10 +40,11 @@ class ModListEntry extends React.Component {
 
 		const idChanged = nid !== id;
 		const installingChanged = nstate.installing[nid] !== state.installing[id];
+		const installedChanged = nstate.installed[nid] !== state.installed[id];
 		const selectedChanged = (state.selected === id && nstate.selected !== nid)
 								|| (state.selected !== id && nstate.selected === nid);
 
-		return idChanged || installingChanged || selectedChanged;
+		return idChanged || installingChanged || installedChanged || selectedChanged;
 	}
 
 	render() {
