@@ -6,28 +6,19 @@ import { ipcMain } from 'electron';
 
 import { modDB, installedDB } from "./db";
 import { downloadFile } from './network';
-import { modIsCompatible, versionCompare } from "./installMod";
+import { getLatestVersions, modIsCompatible } from "./installMod";
 
 const decompressNotifyInterval = 250; // Files
 
 let fetching = false;
-let kspVersion = "1.4.1";
+let kspVersion = "1.3.1";
 
 function filterMods(modList) {
 	// Match the game version compatibility
 	const compatible = modList.filter(mod => modIsCompatible(mod, kspVersion));
 
 	// Reduce to only one version per mod
-	const byIdentifier = compatible.reduce((list, mod) => {
-		if (!list[mod.identifier] || versionCompare(mod.version, list[mod.identifier].version) > 0)
-			list[mod.identifier] = mod;
-
-		return list;
-	}, {});
-
-	const singleVersion = Object.keys(byIdentifier).map(identifier => byIdentifier[identifier]);
-
-	return singleVersion;
+	return getLatestVersions(compatible);
 }
 
 export function sendModsToClient(sender) {
@@ -45,21 +36,22 @@ ipcMain.on('fetchRepository', (event) => {
 	// TODO Find a better solution
 	// Maybe update individual entries instead of replacing the whole DB
 	// which wipes DB keys ...
-	modDB.remove({}, { multi: true }, (err) => {
+	// modDB.remove({}, { multi: true }, (err) => {
 		if (fetching) return;
 		else fetching = true;
 
+		const newEntries = [];
 		const tmpDir = tmp.dirSync({ unsafeCleanup: true });
 		const tmpFile = tmpDir.name + '/file.zip';
 		return downloadFile(config.repository.url, tmpFile, (progress) => {
 			event.sender.send('repositoryFetchProgress', progress * 0.5);
 		}).then(() => {
 			yauzl.open(tmpFile, {lazyEntries: true}, function(err, zipfile) {
+				if (err) throw err;
 
 				const entryCount = zipfile.entryCount;
 				let decompressedCount = 0;
 
-				if (err) throw err;
 				zipfile.readEntry();
 				zipfile.on("entry", function(entry) {
 					if (/\/$/.test(entry.fileName)) {
@@ -81,8 +73,7 @@ ipcMain.on('fetchRepository', (event) => {
 									const parsed = JSON.parse(data);
 									parsed.id = `${parsed.identifier}---${parsed.version}`;
 									if (!parsed.repositories && !parsed.builds) {// Filter out the repositories
-										modDB.insert(parsed);
-										// modDB.update({ id: parsed.id }, parsed, { upsert: true });
+										newEntries.push(parsed);
 									}
 								} catch (err) {}
 
@@ -103,10 +94,14 @@ ipcMain.on('fetchRepository', (event) => {
 				});
 
 				zipfile.on('end', () => {
-					event.sender.send('repositoryFetchProgress', 1);
-					sendModsToClient(event.sender);
+					modDB.remove({}, { multi: true }, (rmErr, rmCount) => {
+						modDB.insert(newEntries, (insErr, docs) => {
+							event.sender.send('repositoryFetchProgress', 1);
+							sendModsToClient(event.sender);
 
-					fetching = false;
+							fetching = false;
+						});
+					});
 				})
 			});
 
@@ -116,5 +111,5 @@ ipcMain.on('fetchRepository', (event) => {
 		}).catch((err) => {
 			console.log("Error!", err);
 		});
-	});
+	// });
 });

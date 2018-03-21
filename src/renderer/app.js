@@ -92,7 +92,7 @@ class App extends React.Component {
 		ipcRenderer.on('installedMods', (event, args) => {
 			args.forEach(mod => {
 				this.props.effects.setModInstalled(mod.id, true);
-				this.props.effects.setModInstalling(mod.id, false);
+				this.props.effects.setModProcessing(mod.id, false);
 			});
 		});
 
@@ -109,10 +109,12 @@ class App extends React.Component {
 				});
 
 				pendingInstall.forEach((mod) => {
-					this.props.effects.setModInstalling(mod, true);
+					this.props.effects.setModProcessing(mod, true);
 				});
 			}
+
 			args.data.id = args.id;
+
 			this.setState({
 				currentDependencyList: args.data
 			});
@@ -120,9 +122,8 @@ class App extends React.Component {
 	}
 
 	handleInstallCancel = () => {
-		console.log(this.state.currentDependencyList.id);
-		this.props.effects.setModInstalling(this.state.currentDependencyList.id, false);
-		// const newInstalling = this.state.installing;
+		this.props.effects.setModProcessing(this.state.currentDependencyList.id, false);
+		// const newInstalling = this.state.processing;
 		// delete newInstalling[this.state.currentDependencyList.id];
         //
 		this.setState({
@@ -145,6 +146,9 @@ class App extends React.Component {
 		const { initialFetch, currentDependencyList } = this.state;
 
 		const resolverDialogOpen = !!(currentDependencyList && !currentDependencyList.autoResolvable);
+		const missingDependencies = currentDependencyList
+			? currentDependencyList.dependencies.filter(dep => dep.versions.length === 0) : [];
+		const dependencyChoices = currentDependencyList ? currentDependencyList.providingDependencies : [];
 
 		const dependencyResolverDialog = (
 			<Dialog
@@ -155,17 +159,24 @@ class App extends React.Component {
 				open={resolverDialogOpen}
 			>
 				<DialogTitle id="confirmation-dialog-title">
-					Meh
+					{missingDependencies ? 'Missing dependencies' : 'Choose a dependency'}
 				</DialogTitle>
 				<DialogContent>
-					<Typography>Unable to auto-resolve dependencies!</Typography>
+					<Typography>Unable to resolve the following dependencies:</Typography>
+					<List>
+						{missingDependencies.map(missingDep => (
+							<ListItem key={missingDep.name}>
+								<Typography>{missingDep.name}</Typography>
+							</ListItem>
+						))}
+					</List>
 				</DialogContent>
 				<DialogActions>
 					<Button onClick={this.handleInstallCancel} color="primary">
 						Cancel
 					</Button>
-					<Button color="primary">
-						Ok
+					<Button onClick={() => alert("TODO: Install mod and resolved deps regardless.")} color="primary">
+						Install regardless
 					</Button>
 				</DialogActions>
 			</Dialog>

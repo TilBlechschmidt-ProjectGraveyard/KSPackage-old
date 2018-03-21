@@ -13,7 +13,10 @@ import {getModIdentifier} from "../helper";
 
 const styles = theme => ({
 	doneIcon: {
-		color: 'green'
+		color: 'green',
+		'&:hover': {
+			color: 'red'
+		}
 	}
 });
 
@@ -24,13 +27,19 @@ class ModListEntry extends React.Component {
 	};
 
 	handleModInstall = modID => () => {
-		this.props.effects.setModInstalling(modID, true);
+		this.props.effects.setModProcessing(modID, true);
 
 		ipcRenderer.send('resolveDependencies', {
 			filter: { id: modID },
-			version: "1.4.1",
+			version: "1.3.1",
 			id: modID
 		});
+	};
+
+	handleModUninstall = modID => () => {
+		this.props.effects.setModProcessing(modID, true);
+
+		ipcRenderer.send('uninstallMods', modID);
 	};
 
 	shouldComponentUpdate(nextProps) {
@@ -39,7 +48,7 @@ class ModListEntry extends React.Component {
 			nstate = nextProps.state;
 
 		const idChanged = nid !== id;
-		const installingChanged = nstate.installing[nid] !== state.installing[id];
+		const installingChanged = nstate.processing[nid] !== state.processing[id];
 		const installedChanged = nstate.installed[nid] !== state.installed[id];
 		const selectedChanged = (state.selected === id && nstate.selected !== nid)
 								|| (state.selected !== id && nstate.selected === nid);
@@ -59,13 +68,13 @@ class ModListEntry extends React.Component {
 			</Tooltip>
 		);
 
-		if (state.installing[id]) {
+		if (state.processing[id]) {
 			icon = (
 				<IconButton disabled className='installIconSpinner'> <Icon>autorenew</Icon> </IconButton>
 			)
 		} else if (state.installed[id]) {
 			icon = (
-				<Tooltip title="Uninstall" placement="bottom">
+				<Tooltip title="Uninstall" placement="bottom" onClick={this.handleModUninstall(id)}>
 					<IconButton> <Icon className={classes.doneIcon}>done</Icon> </IconButton>
 				</Tooltip>
 			)

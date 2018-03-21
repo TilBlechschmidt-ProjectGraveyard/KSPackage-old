@@ -2,24 +2,48 @@ import { provideState, update } from "freactal";
 import Fuse from 'fuse.js';
 import config from '../config.json';
 
+const dependencyResolverCallbacks = {};
+
+const resolveDependencies = (modID) => {
+	return new Promise((resolve, reject) => {
+		dependencyResolverCallbacks[modID] = { resolve, reject };
+
+		ipcRenderer.send('resolveDependencies', {
+			filter: { id: modID },
+			version: config.game.version,
+			id: modID
+		});
+	});
+};
+
+export const wrapComponentWithInstallState = provideState({
+	initialState: () => ({
+		resolverQueue: [], // Not yet resolved mods
+		installQueue: [] // Resolved dependencies - install when resolver queue is empty
+	}),
+	effects: {
+
+	}
+});
+
 export const wrapComponentWithAppState = provideState({
 	initialState: () => ({
 		rawRepository: [],
-		installing: {},
+		processing: {},
 		installed: {},
 		selected: null,
-		searchString: ""
+		searchString: "",
 	}),
 	effects: {
 		setSearchString: update((state, searchString) => ({ searchString })),
 		setRepositoryContent: update((state, content) => ({
 			rawRepository: content
 		})),
-		setModInstalling: update((state, modID, installing) => {
+		setModProcessing: update((state, modID, installing) => {
 			const installingEntry = {};
 			installingEntry[modID] = installing;
 			return {
-				installing: Object.assign({}, state.installing, installingEntry)
+				processing: Object.assign({}, state.processing, installingEntry)
 			}
 		}),
 		setModInstalled: update((state, mod, installed) => {

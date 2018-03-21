@@ -108,8 +108,32 @@ async function getDependency(dependency, targetVersion) {
 	}
 }
 
+export async function getLatestVersions(mods) {
+	const byIdentifier = mods.reduce((list, mod) => {
+		if (!list[mod.identifier] || versionCompare(mod.version, list[mod.identifier].version) > 0)
+			list[mod.identifier] = mod;
+
+		return list;
+	}, {});
+
+	return Object.keys(byIdentifier).map(identifier => byIdentifier[identifier]);
+}
+
+export async function provides(dependency, targetVersion) {
+	const allVersions = await getMod({ 'provides': dependency.name }, false);
+
+	return {
+		name: dependency.name,
+		versions: allVersions.filter(version => modIsCompatible(version, targetVersion))
+	}
+}
+
 async function resolveDependencies(filter, targetVersion) {
 	const mod = await getMod(filter);
+
+	const providingDependencies = (mod.depends || []).map(dependency =>
+		getDependency(dependency, targetVersion)
+	);
 
 	const dependencies = await Promise.all((mod.depends || []).map(dependency =>
 		getDependency(dependency, targetVersion)
@@ -125,10 +149,11 @@ async function resolveDependencies(filter, targetVersion) {
 
 	const dependenciesAutoResolvable = dependencies.reduce((resolvable, dependency) => {
 		return resolvable && dependency.versions.length > 0;
-	}, true);
+	}, true) && providingDependencies.length === 0;
 
 	return {
 		autoResolvable: dependenciesAutoResolvable,
+		providingDependencies,
 		dependencies,
 		recommendations,
 		suggestions
