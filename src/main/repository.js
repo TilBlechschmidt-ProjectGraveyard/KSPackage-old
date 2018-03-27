@@ -6,12 +6,12 @@ import { ipcMain } from 'electron';
 
 import { modDB, installedDB } from "./db";
 import { downloadFile } from './network';
-import { getLatestVersions, modIsCompatible } from "./installMod";
+import {getLatestVersions, modIsCompatible, versionCompare} from "./installMod";
 
 const decompressNotifyInterval = 250; // Files
 
 let fetching = false;
-let kspVersion = "1.3.1";
+let kspVersion = config.game.version;
 
 function filterMods(modList) {
 	// Match the game version compatibility
@@ -32,7 +32,6 @@ export function sendModsToClient(sender) {
 
 ipcMain.on('fetchRepository', (event) => {
 	sendModsToClient(event.sender);
-
 	// TODO Find a better solution
 	// Maybe update individual entries instead of replacing the whole DB
 	// which wipes DB keys ...

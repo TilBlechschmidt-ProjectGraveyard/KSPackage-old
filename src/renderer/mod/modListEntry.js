@@ -29,11 +29,7 @@ class ModListEntry extends React.Component {
 	handleModInstall = modID => () => {
 		this.props.effects.setModProcessing(modID, true);
 
-		ipcRenderer.send('resolveDependencies', {
-			filter: { id: modID },
-			version: "1.3.1",
-			id: modID
-		});
+		this.props.effects.queueModInstall(modID);
 	};
 
 	handleModUninstall = modID => () => {

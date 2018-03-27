@@ -98,17 +98,7 @@ export function modIsCompatible(mod, targetVersion) {
 	}
 }
 
-async function getDependency(dependency, targetVersion) {
-	// TODO Check provides array as well as identifier
-	const allVersions = await getMod({ identifier: dependency.name }, false);
-
-	return {
-		name: dependency.name,
-		versions: allVersions.filter(version => modIsCompatible(version, targetVersion))
-	}
-}
-
-export async function getLatestVersions(mods) {
+export function getLatestVersions(mods) {
 	const byIdentifier = mods.reduce((list, mod) => {
 		if (!list[mod.identifier] || versionCompare(mod.version, list[mod.identifier].version) > 0)
 			list[mod.identifier] = mod;
@@ -119,51 +109,80 @@ export async function getLatestVersions(mods) {
 	return Object.keys(byIdentifier).map(identifier => byIdentifier[identifier]);
 }
 
-export async function provides(dependency, targetVersion) {
-	const allVersions = await getMod({ 'provides': dependency.name }, false);
-
-	return {
-		name: dependency.name,
-		versions: allVersions.filter(version => modIsCompatible(version, targetVersion))
-	}
+async function getCompatibleMod(filter, targetVersion) {
+	return (await getMod(filter, false)).filter(version =>
+		modIsCompatible(version, targetVersion)
+	);
 }
 
 async function resolveDependencies(filter, targetVersion) {
 	const mod = await getMod(filter);
 
-	const providingDependencies = (mod.depends || []).map(dependency =>
-		getDependency(dependency, targetVersion)
+	if (!mod) throw new Error(`Mod not found in database (${JSON.stringify(filter)}).`);
+
+	return await Promise.all((mod.depends || []).map(async dependency => {
+		const direct = await getCompatibleMod({ identifier: dependency.name }, targetVersion);
+		const providing = await getCompatibleMod({ 'provides': dependency.name }, targetVersion);
+
+		return {
+			name: dependency.name,
+			choices: getLatestVersions(direct.concat(providing))
+		}
+	}));
+}
+
+export async function buildDependencyTree(filter, targetVersion, encounteredDependencies = []) {
+	const dependencies = await resolveDependencies(filter, targetVersion);
+
+	const tree = await Promise.all(
+		dependencies.map((dependency, depID) =>
+			Promise.all(
+				dependency.choices.reduce((akk, choice) => {
+					if (encounteredDependencies.includes(choice.identifier)) return akk;
+					/// TODO Check whether or not this mod conflicts with any of the queued mods
+					// const conflicting = encounteredDependencies.reduce((res, encountered) => {
+					// 	if (!choice.conflicts || !encountered) return res;
+					// 	return res && choice.conflicts.reduce((x, conflict) => {
+					// 		if (encountered.includes(conflict.name)) console.log(`${choice.name} conflicts with ${conflict.name}`);
+					// 		return x && !encountered.includes(conflict.name);
+					// 	}, true)
+					// }, true);
+					// if (!conflicting) console.log("Found conflict!");
+
+					/// Check whether or not we encountered this already
+					if (encounteredDependencies.includes(choice.identifier)) return akk;
+					/// Add the identifier and everything this mod provides to the "encountered" list
+					encounteredDependencies.push(choice.identifier);
+					if (choice.provides) choice.provides.forEach(providing => encounteredDependencies.push(providing.name));
+
+					return akk.concat(
+						buildDependencyTree({id: choice.id}, targetVersion, encounteredDependencies).then(dependencies =>
+							({
+								id: choice.id,
+								label: `${choice.name} (Version ${choice.version})`,
+								dependencies
+							})
+						)
+					);
+				}, [])
+			).then(choices => ({ name: dependency.name, choices }))
+		)
 	);
 
-	const dependencies = await Promise.all((mod.depends || []).map(dependency =>
-		getDependency(dependency, targetVersion)
-	));
-
-	const recommendations = await Promise.all((mod.recommends || []).map(recommendation =>
-		getDependency(recommendation, targetVersion)
-	));
-
-	const suggestions = await Promise.all((mod.suggests || []).map(suggestion =>
-		getDependency(suggestion, targetVersion)
-	));
-
-	const dependenciesAutoResolvable = dependencies.reduce((resolvable, dependency) => {
-		return resolvable && dependency.versions.length > 0;
-	}, true) && providingDependencies.length === 0;
-
-	return {
-		autoResolvable: dependenciesAutoResolvable,
-		providingDependencies,
-		dependencies,
-		recommendations,
-		suggestions
-	}
+	return tree.filter(dep => dep.choices.length > 0);
 }
 
 ipcMain.on('resolveDependencies', (event, args) => {
-	resolveDependencies(args.filter, args.version).then((result) => {
-		args.data = result;
+	// TODO Do initial conflict check against installed mods
+	buildDependencyTree({ id: args.id }, args.version, [args.id]).then(result => {
+		args.data = {
+			id: args.id,
+			dependencies: result
+		};
 		event.sender.send('resolvedDependencies', args);
+	}).catch((err) => {
+		args.error = err;
+		event.sender.send('errorResolvingDependencies', args);
 	});
 });
 
@@ -176,7 +195,6 @@ function mkdirp(dir, cb) {
 
 		const parent = path.dirname(dir);
 		mkdirp(parent, function() {
-			// process.stdout.write(dir.replace(/\/$/, "") + "/\n");
 			fs.mkdir(dir, cb);
 		});
 	});
@@ -270,14 +288,16 @@ async function installMod(mod) {
 					source: file,
 					destination: file.substring(prefixLength)
 				}));
-			} else if (directive.find) {
+			} else
+			if (directive.find) {
 				matching = files.filter(filePath => {
 					return path.dirname(filePath).indexOf(directive.find) > -1
 				}).map(file => ({
 					source: file,
 					destination: file.substring(file.indexOf(directive.find))
 				}));
-			} else if (directive['find_regexp']) {
+			} else
+			if (directive['find_regexp']) {
 				const regex = new RegExp(directive['find_regexp'], 'g');
 				matching = files.filter(filePath => filePath.match(regex)).map(file => ({
 					source: file,
@@ -286,7 +306,12 @@ async function installMod(mod) {
 			}
 
 			return {
-				files: matching,
+				files: matching.map(file => ({
+					source: file.source,
+					// TODO This is a workaround. For some reason this is required for various mods.
+					// Specification doesn't tell anything about this case tho -.-
+					destination: file.destination.replace(`${directive['install_to']}/`, '')
+				})),
 				destination: directive['install_to']
 			}
 		});
@@ -306,7 +331,7 @@ async function installMod(mod) {
 
 	await Promise.all(copyOperations);
 
-	await new Promise((resolve, reject) => {
+	return new Promise((resolve, reject) => {
 		installedDB.update({ id: mod.id }, { $set: { files: installedFiles } }, {}, (err) => {
 			if (err) reject(err);
 			else resolve();

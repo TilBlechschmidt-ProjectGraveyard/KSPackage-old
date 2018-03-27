@@ -1,7 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { withStyles } from 'material-ui/styles';
-import config from '../config.json';
 
 import classNames from 'classnames';
 
@@ -9,14 +8,11 @@ import ReactList from 'react-list';
 import Drawer from 'material-ui/Drawer';
 import AppBar from 'material-ui/AppBar';
 import List from 'material-ui/List';
-import Typography from 'material-ui/Typography';
-import Divider from 'material-ui/Divider';
 import {
-	Button,
-	Dialog, DialogActions, DialogContent, DialogTitle, Grid, Icon, IconButton, Input, InputAdornment, ListItem,
-	ListItemSecondaryAction,
-	ListItemText,
-	Tooltip
+	Grid,
+	Icon,
+	Input,
+	InputAdornment
 } from "material-ui";
 import CssBaseline from 'material-ui/CssBaseline';
 
@@ -24,15 +20,15 @@ import ModListEntry from './mod/modListEntry';
 
 import Mod from './mod/modDetails';
 import Loader from './loader/loader';
-import {wrapComponentWithAppState} from "./state";
+import {wrapComponentWithAppState, wrapComponentWithInstallState} from "./state";
 import {injectState} from "freactal";
-import {getModIdentifier} from "./helper";
+
+import ModInstall from './mod/modInstall';
 
 const drawerWidth = 240;
 
 const styles = theme => ({
 	root: {
-		// flexGrow: 1,
 		height: '100%'
 	},
 	appFrame: {
@@ -63,7 +59,6 @@ const styles = theme => ({
 		height: theme.spacing.unit * 4,
 	},
 	content: {
-		// flexGrow: 1,
 		width: '100%',
 		backgroundColor: theme.palette.background.default
 	},
@@ -76,8 +71,7 @@ const { ipcRenderer } = require('electron');
 
 class App extends React.Component {
 	state = {
-		initialFetch: true,
-		currentDependencyList: null
+		initialFetch: true
 	};
 
 	componentWillMount() {
@@ -88,48 +82,14 @@ class App extends React.Component {
 			});
 		});
 
-		// TODO Show failed installs visually
+		// TODO Show failed installs visually popup/whatever
 		ipcRenderer.on('installedMods', (event, args) => {
 			args.forEach(mod => {
 				this.props.effects.setModInstalled(mod.id, true);
 				this.props.effects.setModProcessing(mod.id, false);
 			});
 		});
-
-		ipcRenderer.on('resolvedDependencies', (event, args) => {
-			if (args.data.autoResolvable) {
-				const pendingInstall = args.data.dependencies.map(dependency =>
-					// TODO the last element does not have to be the most recent
-					dependency.versions[dependency.versions.length - 1].id
-				);
-				pendingInstall.push(args.id);
-
-				ipcRenderer.send('installMods', {
-					modList: pendingInstall
-				});
-
-				pendingInstall.forEach((mod) => {
-					this.props.effects.setModProcessing(mod, true);
-				});
-			}
-
-			args.data.id = args.id;
-
-			this.setState({
-				currentDependencyList: args.data
-			});
-		});
 	}
-
-	handleInstallCancel = () => {
-		this.props.effects.setModProcessing(this.state.currentDependencyList.id, false);
-		// const newInstalling = this.state.processing;
-		// delete newInstalling[this.state.currentDependencyList.id];
-        //
-		this.setState({
-			currentDependencyList: null
-		});
-	};
 
 	handleSearch = (event) => {
 		this.props.effects.setSearchString(event.target.value);
@@ -143,44 +103,7 @@ class App extends React.Component {
 
 	render() {
 		const { classes, state } = this.props;
-		const { initialFetch, currentDependencyList } = this.state;
-
-		const resolverDialogOpen = !!(currentDependencyList && !currentDependencyList.autoResolvable);
-		const missingDependencies = currentDependencyList
-			? currentDependencyList.dependencies.filter(dep => dep.versions.length === 0) : [];
-		const dependencyChoices = currentDependencyList ? currentDependencyList.providingDependencies : [];
-
-		const dependencyResolverDialog = (
-			<Dialog
-				disableBackdropClick
-				disableEscapeKeyDown
-				maxWidth="xs"
-				aria-labelledby="confirmation-dialog-title"
-				open={resolverDialogOpen}
-			>
-				<DialogTitle id="confirmation-dialog-title">
-					{missingDependencies ? 'Missing dependencies' : 'Choose a dependency'}
-				</DialogTitle>
-				<DialogContent>
-					<Typography>Unable to resolve the following dependencies:</Typography>
-					<List>
-						{missingDependencies.map(missingDep => (
-							<ListItem key={missingDep.name}>
-								<Typography>{missingDep.name}</Typography>
-							</ListItem>
-						))}
-					</List>
-				</DialogContent>
-				<DialogActions>
-					<Button onClick={this.handleInstallCancel} color="primary">
-						Cancel
-					</Button>
-					<Button onClick={() => alert("TODO: Install mod and resolved deps regardless.")} color="primary">
-						Install regardless
-					</Button>
-				</DialogActions>
-			</Dialog>
-		);
+		const { initialFetch } = this.state;
 
 		const mods = state.searchString ? state.searchResults : state.rawRepository;
 
@@ -197,6 +120,7 @@ class App extends React.Component {
 		return (
 			<div className={classes.root}>
 				<CssBaseline />
+				<ModInstall />
 				<div className={classNames(classes.appFrame, 'draggable')}>
 					<Drawer
 						variant="permanent"
@@ -228,7 +152,7 @@ class App extends React.Component {
 						{initialFetch
 							? <Grid container justify="center" alignItems="center" style={{ height: '100%' }}>
 								<Grid item>
-									<Loader text="Refreshing modlist" />
+									<Loader text="Downloading modlist" />
 								</Grid>
 							</Grid>
 							: modList}
@@ -237,7 +161,6 @@ class App extends React.Component {
 						<Mod />
 					</main>
 				</div>
-				{dependencyResolverDialog}
 			</div>
 		);
 	}
@@ -247,6 +170,6 @@ App.propTypes = {
 	classes: PropTypes.object.isRequired,
 };
 
-export default wrapComponentWithAppState(
+export default wrapComponentWithInstallState(wrapComponentWithAppState(
 	injectState(withStyles(styles)(App))
-);
+));

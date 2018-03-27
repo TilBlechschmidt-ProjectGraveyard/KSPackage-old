@@ -44,15 +44,6 @@ function createMainWindow() {
 		mainWindow = null
 	});
 
-	window.webContents.on('devtools-opened', () => {
-		window.focus();
-		setImmediate(() => {
-			window.focus()
-		})
-	});
-
-	require('./installMod').provides({ name: 'AVP-Textures' }, '1.3.1').then(console.log);
-
 	return window
 }
 
