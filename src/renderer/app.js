@@ -10,7 +10,7 @@ import AppBar from 'material-ui/AppBar';
 import List from 'material-ui/List';
 import {
 	Grid,
-	Icon,
+	Icon, IconButton,
 	Input,
 	InputAdornment
 } from "material-ui";
@@ -51,7 +51,7 @@ const styles = theme => ({
 	},
 	toolbar: {
 		minHeight: theme.spacing.unit * 4,
-		padding: theme.spacing.unit,
+		padding: `${theme.spacing.unit}px ${theme.spacing.unit * 0.5}px`,
 		backgroundColor: theme.palette.background.default,
 		boxShadow: 'none'
 	},
@@ -62,8 +62,17 @@ const styles = theme => ({
 		width: '100%',
 		backgroundColor: theme.palette.background.default
 	},
+	search: {
+		marginLeft: theme.spacing.unit,
+		marginRight: theme.spacing.unit
+	},
 	searchInput: {
 		margin: '10px'
+	},
+	menuButton: {
+		float: 'right',
+		height: theme.spacing.unit * 4,
+		width: theme.spacing.unit * 4
 	}
 });
 
@@ -130,7 +139,18 @@ class App extends React.Component {
 						className="not-draggable"
 					>
 						<AppBar position="sticky" color="default" classes={{ root: classes.toolbar }}>
-							<div className={classes.toolbarPadding} />
+							<div className={classes.toolbarPadding}>
+								<Grid
+									container
+									className={classes.toolbarPadding}
+									style={{ width: '100%', margin: 0 }}
+									spacing={0}
+									justify="flex-end"
+									alignItems="center"
+								>
+									<Grid item><IconButton><Icon>more_vert</Icon></IconButton></Grid>
+								</Grid>
+							</div>
 							<Input
 								placeholder="Search"
 								inputProps={{
@@ -141,6 +161,7 @@ class App extends React.Component {
 										<Icon>search</Icon>
 									</InputAdornment>
 								}
+								className={classes.search}
 								classes={{
 									input: classes.searchInput
 								}}

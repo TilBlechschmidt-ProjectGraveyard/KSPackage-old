@@ -87,10 +87,15 @@ function isWithinVersionRange(version, startVersion, endVersion) {
 		&& (endVersion === 'any' || versionCompare(version, endVersion) < 1);
 }
 
+function stripPatch(version) {
+	return version.split('.').slice(0, 2).join('.');
+}
+
 export function modIsCompatible(mod, targetVersion) {
 	if (mod['ksp_version']) {
 		return mod['ksp_version'] === targetVersion // Version match
 			|| mod['ksp_version'] === 'any' // Version wildcard
+			|| stripPatch(mod['ksp_version']) === stripPatch(targetVersion); // Version match (ignoring the patch comp.)
 	} else if (mod['ksp_version_min'] || mod['ksp_version_max']) {
 		return isWithinVersionRange(targetVersion, mod['ksp_version_min'], mod['ksp_version_max']);
 	} else {
