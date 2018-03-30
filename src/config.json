@@ -1,6 +1,9 @@
 {
-  "game": {
-	"version": "1.4.1"
+  "settings": {
+	"game": {
+	  "version": "1.4.1",
+	  "location": "/Users/themegatb/Downloads/KSP"
+	}
   },
   "repository": {
 	"url": "https://github.com/KSP-CKAN/CKAN-meta/archive/master.zip"

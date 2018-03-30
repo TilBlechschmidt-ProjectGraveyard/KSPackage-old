@@ -24,10 +24,7 @@ export const resolveDependencies = (modID) => {
 
 		dependencyResolverCallbacks[modID] = { resolve, reject, timeout };
 
-		ipcRenderer.send('resolveDependencies', {
-			version: config.game.version,
-			id: modID
-		});
+		ipcRenderer.send('resolveDependencies', { id: modID });
 	});
 };
 

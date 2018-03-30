@@ -65,5 +65,5 @@ app.on('activate', () => {
 // create main BrowserWindow when electron is ready
 app.on('ready', () => {
 	loadDB();
-	mainWindow = createMainWindow()
+	mainWindow = createMainWindow();
 });

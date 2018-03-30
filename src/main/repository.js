@@ -6,16 +6,18 @@ import { ipcMain } from 'electron';
 
 import { modDB, installedDB } from "./db";
 import { downloadFile } from './network';
-import {getLatestVersions, modIsCompatible, versionCompare} from "./installMod";
+import {getLatestVersions, modIsCompatible} from "./installMod";
+import {Game} from "./settings";
 
 const decompressNotifyInterval = 250; // Files
 
 let fetching = false;
-let kspVersion = config.game.version;
 
 function filterMods(modList) {
+	const gameVersion = Game.version;
+
 	// Match the game version compatibility
-	const compatible = modList.filter(mod => modIsCompatible(mod, kspVersion));
+	const compatible = modList.filter(mod => modIsCompatible(mod, gameVersion));
 
 	// Reduce to only one version per mod
 	return getLatestVersions(compatible);

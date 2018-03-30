@@ -8,6 +8,10 @@ import { downloadFile } from "./network";
 import { installedDB } from "./db";
 import {sendModsToClient} from "./repository";
 
+import {Game} from "./settings";
+
+const gameDirectory = Game.location; //path.join(app.getPath('downloads'), 'KSPMods');
+
 function getMod(filter, singleMod = true) {
 	return new Promise((resolve, reject) => {
 		if (singleMod)
@@ -179,7 +183,7 @@ export async function buildDependencyTree(filter, targetVersion, encounteredDepe
 
 ipcMain.on('resolveDependencies', (event, args) => {
 	// TODO Do initial conflict check against installed mods
-	buildDependencyTree({ id: args.id }, args.version, [args.id]).then(result => {
+	buildDependencyTree({ id: args.id }, Game.version, [args.id]).then(result => {
 		args.data = {
 			id: args.id,
 			dependencies: result
@@ -190,8 +194,6 @@ ipcMain.on('resolveDependencies', (event, args) => {
 		event.sender.send('errorResolvingDependencies', args);
 	});
 });
-
-const gameDirectory = path.join(app.getPath('downloads'), 'KSPMods');
 
 function mkdirp(dir, cb) {
 	if (dir === ".") return cb();
@@ -286,6 +288,11 @@ async function installMod(mod) {
 	} else {
 		directives = mod.install.map(directive => {
 			let matching = [];
+
+			// TODO: The Kraken is still strong with this one! (File install path)
+			// Example 'scatterer' + 'scatterer config' -> latter one creates subdir instead of being installed to scatterer dir
+			// This might help (CKAN logic) although its a bit all-over-the-place:
+			// https://github.com/KSP-CKAN/CKAN/blob/1eea827a619b7511b0f4e4f6711dfd5235facbcd/Core/ModuleInstaller.cs#L424
 
 			if (directive.file) {
 				const prefixLength = directive.file.length - path.basename(directive.file).length;
