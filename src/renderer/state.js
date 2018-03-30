@@ -78,20 +78,41 @@ const breakDownTree = (dependencyTree, selected) => {
 
 export const wrapComponentWithInstallState = provideState({
 	initialState: () => ({
+		processing: {},
+
 		selectedChoices: {},
 		choices: [],
 		installQueue: [],
 		tree: null
 	}),
 	effects: {
+		setModProcessing: update((state, modID, installing) => ({
+				processing: Object.assign({}, state.processing, { [modID]: installing })
+		})),
+
 		queueModInstall: (effects, modID) => {
 			return resolveDependencies(modID).then(
-				(dependencyTree) => (state) => {
-					return Object.assign({},
-						state,
-						breakDownTree(dependencyTree, state.selectedChoices),
-						{ tree: dependencyTree }
-					);
+				(dependencyTree) => {
+					const tree = breakDownTree(dependencyTree, {});
+
+					// If possible run automatic install
+					if (tree.choices.length === 0) {
+						ipcRenderer.send('installMods', {
+							modList: tree.installQueue
+						});
+
+						tree.installQueue.forEach(mod => {
+							effects.setModProcessing(mod, true);
+						});
+					} else {
+						return (state) => {
+							return Object.assign({},
+								state,
+								tree,
+								{ tree: dependencyTree }
+							);
+						}
+					}
 				}
 			).catch(console.error);
 		},
@@ -104,7 +125,6 @@ export const wrapComponentWithInstallState = provideState({
 export const wrapComponentWithAppState = provideState({
 	initialState: () => ({
 		rawRepository: [],
-		processing: {},
 		installed: {},
 		selected: null,
 		searchString: "",
@@ -114,13 +134,6 @@ export const wrapComponentWithAppState = provideState({
 		setRepositoryContent: update((state, content) => ({
 			rawRepository: content
 		})),
-		setModProcessing: update((state, modID, installing) => {
-			const installingEntry = {};
-			installingEntry[modID] = installing;
-			return {
-				processing: Object.assign({}, state.processing, installingEntry)
-			}
-		}),
 		setModInstalled: update((state, mod, installed) => {
 			const installingEntry = {};
 			installingEntry[mod] = installed;

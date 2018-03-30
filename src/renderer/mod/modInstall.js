@@ -49,6 +49,14 @@ class ModInstall extends React.Component {
 		this.props.effects.cancelInstall();
 	};
 
+	cancelInstallation = () => {
+		this.props.state.installQueue.forEach(mod => {
+			this.props.effects.setModProcessing(mod, false);
+		});
+
+		this.props.effects.cancelInstall();
+	};
+
 	render() {
 		const { state } = this.props;
 		const { selectedChoices, choices, installQueue } = state;
@@ -92,7 +100,7 @@ class ModInstall extends React.Component {
 				</DialogContent>
 				<DialogActions>
 					{/* TODO: The following call to cancelInstall empties the dialog before it is fully hidden. */}
-					<Button onClick={this.props.effects.cancelInstall}>
+					<Button onClick={this.cancelInstallation}>
 						Cancel
 					</Button>
 					<Button onClick={this.applyConflictResolutions} color="primary" disabled={conflictResolutionInvalid}>
@@ -125,7 +133,7 @@ class ModInstall extends React.Component {
 				</DialogContent>
 				<DialogActions>
 					{/* TODO: The following call to cancelInstall empties the dialog before it is fully hidden. */}
-					<Button onClick={this.props.effects.cancelInstall}>
+					<Button onClick={this.cancelInstallation}>
 						Cancel
 					</Button>
 					<Button onClick={this.executeInstallation} color="primary">
